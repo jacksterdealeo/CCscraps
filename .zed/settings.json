@@ -1,0 +1,12 @@
+{
+  "use_on_type_format": false,
+  "colorize_brackets": true,
+  "extend_comment_on_newline": false,
+  "tab_size": 2,
+  "languages": {
+    "Lua": {
+      "preferred_line_length": 39,
+      "tab_size": 2
+    }
+  }
+}
