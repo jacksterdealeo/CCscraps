@@ -25,6 +25,8 @@
     "textutils",
     "turtle",
     "vector",
-    "window"
+    "window",
+
+    "sleep"
   ]
 }
