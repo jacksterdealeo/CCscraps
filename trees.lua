@@ -1,5 +1,42 @@
 local M = {}
-local refuel = require("refuel")
+
+-- Makes it smart about what fuel to use, and when.
+local function smartRefuel(accepted_set, fuel_tank_target)
+  fuel_tank_target = fuel_tank_target or .75
+  local fuel_limit = turtle.getFuelLimit()
+  if fuel_limit == "unlimited" then return true end
+  local fuel_level = turtle.getFuelLevel()
+  if fuel_level/fuel_limit > fuel_tank_target then
+    return true
+  end
+
+  accepted_set = accepted_set or
+  {
+    ["minecraft:charcoal"] = true,
+    ["minecraft:coal"] = true,
+    ["minecraft:stick"] = true,
+  }
+  local success = false
+  for i = 16, 1, -1 do
+    local block = turtle.getItemDetail(i)
+    if block ~= nil then
+
+    if accepted_set[block.name] then
+      print(block.name, "was used as fuel.")
+      local original_slot = turtle.getSelectedSlot()
+      turtle.select(i)
+      turtle.refuel()
+      turtle.select(original_slot)
+      success = true
+    end
+
+    end
+  end
+  if not success then
+	  return false, "Out of Fuel!"
+  end
+  return true
+end
 
 -- checks that there is an err, and prints it.
 local function logErr(ok, err)
@@ -27,7 +64,7 @@ function M.destroyTree()
     end
     -- Check if refueling is neccessary.
     if turtle.getFuelLevel() < 100 then
-      refuel.refuel()
+      smartRefuel()
     end
     local dug, _ = turtle.dig()
     if not dug then break end
@@ -62,8 +99,10 @@ function M.plantSapling()
     turtle.select(i)
     if M.isSlotWithSapling(i) then
       have_sapling = true
-      -- No error check. Assume sapling already placed if failed.
-      turtle.place()
+      local placed, err = turtle.place()
+      if not placed then
+        return false, err
+      end
       break
     end
   end
@@ -123,12 +162,22 @@ function M.doLoopingTreeFarm(stall_time)
     return true
   end
 
+  --[[ TODO!
+  This finds where the turtle is and where it should go.
+  This assumes that the turtle's trajectory is clockwise.
+  ]]--
+  local function findPosition()
+
+  end
+
   --[[ First it needs to check that it is positioned by
   looking around for walls, saplings, and logs. ]]--
  	local ok, block = turtle.inspect()
 	local found_wall = ok and not block.tags["minecraft:logs"] and not block.tags["minecraft:saplings"]
 	local found_sapling = ok and block.tags["minecraft:saplings"]
 	local found_log = ok and block.tags["minecraft:logs"]
+
+	findPosition()
 
 	-- Bootstrap checks
 	if found_wall then
@@ -163,6 +212,64 @@ function M.doLoopingTreeFarm(stall_time)
     if not logErr(M.plantSapling()) then break end
     if not logErr(continueRoute()) then break end
     sleep(stall_time)
+  end
+end
+
+-- This is where the line tree farm is being tested.
+--[[ UNFINISHED!!!
+The turtle should plant trees in a line,
+guided by a ring of dirt blocks under and around
+the turtle.
+]]--
+
+--[[ NOTES:
+-Refueling is not automatic.
+-Restocking saplings is not automatic.
+-Depositing logs is not automatic,
+  but can be worked around by filling every slot
+  and relying on a vacuum chest.
+]]--
+
+-- Go from one sapling spot to the next.
+function M.doLineTreeFarm(stall_time)
+  stall_time = stall_time or 0
+  M.goToGround()
+
+  -- This finds where the turtle is and where it should go.
+  -- Bootstrap checks
+  local function actionLoop()
+   	local ok, block = turtle.inspect()
+  	local found_wall = ok and not block.tags["minecraft:logs"] and not block.tags["minecraft:saplings"]
+  	local found_log = ok and block.tags["minecraft:logs"]
+  	local found_sapling = ok and block.tags["minecraft:saplings"]
+    if not found_sapling and not turtle.detect() then
+      if M.plantSapling() then
+        found_sapling = true
+      end
+    end
+
+  	if found_wall then
+      turtle.turnRight()
+  	elseif found_sapling then
+      turtle.turnRight()
+  	elseif found_log then
+      M.destroyTree()
+      M.plantSapling()
+      turtle.turnRight()
+    elseif not turtle.detect() then
+      if not M.plantSapling() then
+        turtle.forward()
+        turtle.turnLeft()
+      else
+        turtle.turnRight()
+      end
+  	end
+  end
+
+  while true do
+    actionLoop()
+    sleep(stall_time)
+    smartRefuel()
   end
 end
 
